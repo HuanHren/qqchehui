@@ -26,6 +26,16 @@ final class PreferenceReader {
         }
         try {
             preferences.reload();
+            String template = preferences.getString(
+                    ModulePrefs.KEY_GRAY_TIP_TEMPLATE,
+                    ModulePrefs.DEFAULT_GRAY_TIP_TEMPLATE
+            );
+            if (template == null || template.trim().isEmpty()) {
+                template = ModulePrefs.DEFAULT_GRAY_TIP_TEMPLATE;
+            }
+            if (template.length() > ModulePrefs.MAX_GRAY_TIP_TEMPLATE_LENGTH) {
+                template = template.substring(0, ModulePrefs.MAX_GRAY_TIP_TEMPLATE_LENGTH);
+            }
             return new Settings(
                     preferences.getBoolean(ModulePrefs.KEY_ENABLED, ModulePrefs.DEFAULT_ENABLED),
                     preferences.getBoolean(
@@ -40,6 +50,11 @@ final class PreferenceReader {
                             ModulePrefs.KEY_LEGACY_FALLBACK,
                             ModulePrefs.DEFAULT_LEGACY_FALLBACK
                     ),
+                    preferences.getBoolean(
+                            ModulePrefs.KEY_SHOW_GRAY_TIP,
+                            ModulePrefs.DEFAULT_SHOW_GRAY_TIP
+                    ),
+                    template,
                     preferences.getBoolean(
                             ModulePrefs.KEY_DIAGNOSTICS,
                             ModulePrefs.DEFAULT_DIAGNOSTICS
@@ -56,14 +71,19 @@ final class PreferenceReader {
         private final boolean blockOnlineRecall;
         private final boolean stripSyncRecall;
         private final boolean legacyFallback;
+        private final boolean showGrayTip;
+        private final String grayTipTemplate;
         private final boolean diagnostics;
 
         Settings(boolean enabled, boolean blockOnlineRecall, boolean stripSyncRecall,
-                boolean legacyFallback, boolean diagnostics) {
+                boolean legacyFallback, boolean showGrayTip, String grayTipTemplate,
+                boolean diagnostics) {
             this.enabled = enabled;
             this.blockOnlineRecall = blockOnlineRecall;
             this.stripSyncRecall = stripSyncRecall;
             this.legacyFallback = legacyFallback;
+            this.showGrayTip = showGrayTip;
+            this.grayTipTemplate = grayTipTemplate;
             this.diagnostics = diagnostics;
         }
 
@@ -83,6 +103,14 @@ final class PreferenceReader {
             return legacyFallback;
         }
 
+        boolean showGrayTip() {
+            return showGrayTip;
+        }
+
+        String grayTipTemplate() {
+            return grayTipTemplate;
+        }
+
         boolean diagnostics() {
             return diagnostics;
         }
@@ -93,6 +121,8 @@ final class PreferenceReader {
                     ModulePrefs.DEFAULT_BLOCK_ONLINE_RECALL,
                     ModulePrefs.DEFAULT_STRIP_SYNC_RECALL,
                     ModulePrefs.DEFAULT_LEGACY_FALLBACK,
+                    ModulePrefs.DEFAULT_SHOW_GRAY_TIP,
+                    ModulePrefs.DEFAULT_GRAY_TIP_TEMPLATE,
                     ModulePrefs.DEFAULT_DIAGNOSTICS
             );
         }
