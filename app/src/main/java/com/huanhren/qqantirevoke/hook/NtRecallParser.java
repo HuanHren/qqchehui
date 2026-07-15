@@ -196,6 +196,7 @@ final class NtRecallParser {
         private final String peer;
         private final String operator;
         private final String author;
+        private final String target;
         private final long msgUid;
         private final long msgSeq;
         private final long clientSeq;
@@ -203,13 +204,14 @@ final class NtRecallParser {
         private final long timestamp;
         private final long opType;
 
-        private Event(Kind kind, String peer, String operator, String author,
+        private Event(Kind kind, String peer, String operator, String author, String target,
                 long msgUid, long msgSeq, long clientSeq, long randomId,
                 long timestamp, long opType) {
             this.kind = kind;
             this.peer = peer;
             this.operator = operator;
             this.author = author;
+            this.target = target;
             this.msgUid = msgUid;
             this.msgSeq = msgSeq;
             this.clientSeq = clientSeq;
@@ -220,23 +222,39 @@ final class NtRecallParser {
 
         static Event c2c(String fromUid, String toUid, long msgUid, long msgSeq,
                 long clientSeq, long randomId, long timestamp) {
-            String peer = safe(fromUid) + "->" + safe(toUid);
-            return new Event(Kind.C2C, peer, fromUid, fromUid, msgUid, msgSeq,
+            String route = safe(fromUid) + "->" + safe(toUid);
+            return new Event(Kind.C2C, route, fromUid, fromUid, toUid, msgUid, msgSeq,
                     clientSeq, randomId, timestamp, 0);
         }
 
         static Event group(String groupCode, String operatorUid, String authorUid,
                 long msgSeq, long randomId, long timestamp, long opType) {
-            return new Event(Kind.GROUP, groupCode, operatorUid, authorUid, 0,
+            return new Event(Kind.GROUP, groupCode, operatorUid, authorUid, null, 0,
                     msgSeq, 0, randomId, timestamp, opType);
         }
 
         static Event syncUnknown() {
-            return new Event(Kind.SYNC_UNKNOWN, null, null, null, 0, 0, 0, 0, 0, 0);
+            return new Event(Kind.SYNC_UNKNOWN, null, null, null, null, 0, 0, 0, 0, 0, 0);
         }
 
         Kind kind() {
             return kind;
+        }
+
+        String peer() {
+            return peer;
+        }
+
+        String operator() {
+            return operator;
+        }
+
+        String author() {
+            return author;
+        }
+
+        String target() {
+            return target;
         }
 
         long msgSeq() {
@@ -245,6 +263,26 @@ final class NtRecallParser {
 
         long msgUid() {
             return msgUid;
+        }
+
+        long clientSeq() {
+            return clientSeq;
+        }
+
+        long randomId() {
+            return randomId;
+        }
+
+        long timestamp() {
+            return timestamp;
+        }
+
+        long opType() {
+            return opType;
+        }
+
+        String stableKey() {
+            return kind + ":" + safe(peer) + ":" + msgSeq + ":" + msgUid + ":" + randomId;
         }
 
         String describe() {
