@@ -7,8 +7,10 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Switch;
@@ -29,6 +31,7 @@ public final class MainActivity extends Activity {
     private static final int MAX_ROOT_LOG_LINES = 1000;
 
     private SharedPreferences preferences;
+    private EditText grayTemplateInput;
     private TextView logStatus;
     private TextView logView;
     private String lastDisplayedLogs = "";
@@ -47,10 +50,10 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT
         ));
 
-        root.addView(text("QQ 防撤回 · NT v3.0", 25, true));
+        root.addView(text("QQ 防撤回 · NT v3.1", 25, true));
         root.addView(text(
                 "目标环境：Android 15、QQ 9.2.10、LSPosed Zygisk。\n\n"
-                        + "v3.0 不再依赖 k/V/Z 删除链路，而是在 QQ NT 的 onMsfPush 入口识别并阻断撤回推送。",
+                        + "v3.1 在阻断 QQ NT 撤回推送后，会按你设置的模板插入一条本地灰色提示。",
                 15,
                 false
         ));
@@ -66,6 +69,11 @@ public final class MainActivity extends Activity {
                 ModulePrefs.DEFAULT_BLOCK_ONLINE_RECALL
         ));
         root.addView(option(
+                "显示本地撤回灰条",
+                ModulePrefs.KEY_SHOW_GRAY_TIP,
+                ModulePrefs.DEFAULT_SHOW_GRAY_TIP
+        ));
+        root.addView(option(
                 "过滤启动/重连时的同步撤回（推荐）",
                 ModulePrefs.KEY_STRIP_SYNC_RECALL,
                 ModulePrefs.DEFAULT_STRIP_SYNC_RECALL
@@ -79,6 +87,50 @@ public final class MainActivity extends Activity {
                 "详细诊断日志",
                 ModulePrefs.KEY_DIAGNOSTICS,
                 ModulePrefs.DEFAULT_DIAGNOSTICS
+        ));
+
+        root.addView(text("\n撤回灰条内容", 21, true));
+        root.addView(text(
+                "默认显示“该用户尝试撤回一条消息”。你可以直接修改。\n"
+                        + "可用变量：{operator}、{author}、{seq}、{peer}、{type}、"
+                        + "{operator_uid}、{author_uid}。",
+                14,
+                false
+        ));
+
+        grayTemplateInput = new EditText(this);
+        grayTemplateInput.setText(preferences.getString(
+                ModulePrefs.KEY_GRAY_TIP_TEMPLATE,
+                ModulePrefs.DEFAULT_GRAY_TIP_TEMPLATE
+        ));
+        grayTemplateInput.setHint(ModulePrefs.DEFAULT_GRAY_TIP_TEMPLATE);
+        grayTemplateInput.setTextSize(16f);
+        grayTemplateInput.setMinLines(2);
+        grayTemplateInput.setMaxLines(4);
+        grayTemplateInput.setInputType(
+                InputType.TYPE_CLASS_TEXT
+                        | InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                        | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        );
+        grayTemplateInput.setPadding(dp(12), dp(10), dp(12), dp(10));
+        grayTemplateInput.setBackgroundResource(android.R.drawable.edit_text);
+        root.addView(grayTemplateInput, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        LinearLayout templateActions = horizontalRow();
+        templateActions.addView(actionButton("保存灰条内容", this::saveGrayTipTemplate), weightedButtonParams());
+        templateActions.addView(actionButton("恢复默认", this::resetGrayTipTemplate), weightedButtonParams());
+        root.addView(templateActions);
+
+        root.addView(text(
+                "示例：\n"
+                        + "{operator}尝试撤回一条消息\n"
+                        + "{operator}撤回失败，消息已保留 [seq={seq}]\n"
+                        + "有人想销毁证据，但没有成功",
+                13,
+                false
         ));
 
         root.addView(text("\n模块专属日志", 21, true));
@@ -122,12 +174,11 @@ public final class MainActivity extends Activity {
 
         root.addView(text(
                 "\n测试顺序：\n"
-                        + "1. 先点“测试 Provider”，确认 App 自身日志存储正常。\n"
-                        + "2. 在 LSPosed 中确认作用域只勾选 QQ。\n"
-                        + "3. 强制停止 QQ，再重新打开。\n"
-                        + "4. 先刷新 Provider；没有 QQ 日志时改点 Root 读取。\n"
-                        + "5. 确认出现“v3.0 安装完成”。\n"
-                        + "6. 让另一个账号撤回一条普通文字消息，再读取日志。\n\n"
+                        + "1. 保存灰条内容并保持“显示本地撤回灰条”开启。\n"
+                        + "2. 强制停止 QQ，再重新打开。\n"
+                        + "3. 让另一个账号撤回一条普通消息。\n"
+                        + "4. 原消息应保留，下面出现自定义灰色提示。\n"
+                        + "5. 没有灰条时读取日志，查看“已插入”或“插入失败”。\n\n"
                         + "首次 Root 读取会弹出 Magisk 授权，请允许。设置变更需要强制停止并重启 QQ 后生效。",
                 14,
                 false
@@ -167,6 +218,34 @@ public final class MainActivity extends Activity {
         return view;
     }
 
+    private void saveGrayTipTemplate() {
+        String template = grayTemplateInput.getText() == null
+                ? ""
+                : grayTemplateInput.getText().toString().trim();
+        if (template.isEmpty()) {
+            template = ModulePrefs.DEFAULT_GRAY_TIP_TEMPLATE;
+        }
+        if (template.length() > ModulePrefs.MAX_GRAY_TIP_TEMPLATE_LENGTH) {
+            template = template.substring(0, ModulePrefs.MAX_GRAY_TIP_TEMPLATE_LENGTH);
+            Toast.makeText(this, "内容过长，已截断为 160 个字符", Toast.LENGTH_LONG).show();
+        }
+        preferences.edit()
+                .putString(ModulePrefs.KEY_GRAY_TIP_TEMPLATE, template)
+                .apply();
+        grayTemplateInput.setText(template);
+        grayTemplateInput.setSelection(template.length());
+        Toast.makeText(this, "灰条内容已保存，重启 QQ 后生效", Toast.LENGTH_SHORT).show();
+    }
+
+    private void resetGrayTipTemplate() {
+        preferences.edit()
+                .putString(ModulePrefs.KEY_GRAY_TIP_TEMPLATE, ModulePrefs.DEFAULT_GRAY_TIP_TEMPLATE)
+                .apply();
+        grayTemplateInput.setText(ModulePrefs.DEFAULT_GRAY_TIP_TEMPLATE);
+        grayTemplateInput.setSelection(ModulePrefs.DEFAULT_GRAY_TIP_TEMPLATE.length());
+        Toast.makeText(this, "已恢复默认灰条内容，重启 QQ 后生效", Toast.LENGTH_SHORT).show();
+    }
+
     private LinearLayout horizontalRow() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -198,7 +277,7 @@ public final class MainActivity extends Activity {
                     ? "日志 Provider 未返回结果"
                     : result.getString(ModulePrefs.LOG_RESULT_ERROR, "未知错误");
             showLogs("读取 Provider 失败：" + error,
-                    "请确认安装的是 v3.0 APK。Provider 不可用时点击 Root 读取。\n\n" + error);
+                    "请确认安装的是 v3.1 APK。Provider 不可用时点击 Root 读取。\n\n" + error);
             return;
         }
 
@@ -220,7 +299,7 @@ public final class MainActivity extends Activity {
         }
         ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         if (clipboard != null) {
-            clipboard.setPrimaryClip(ClipData.newPlainText("QQAntiRevoke v3 日志", lastDisplayedLogs));
+            clipboard.setPrimaryClip(ClipData.newPlainText("QQAntiRevoke v3.1 日志", lastDisplayedLogs));
             Toast.makeText(this, "当前显示的日志已复制", Toast.LENGTH_SHORT).show();
         }
     }
