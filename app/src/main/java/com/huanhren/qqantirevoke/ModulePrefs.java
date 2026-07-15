@@ -11,13 +11,18 @@ public final class ModulePrefs {
     public static final String KEY_BLOCK_ONLINE_RECALL = "block_online_recall";
     public static final String KEY_STRIP_SYNC_RECALL = "strip_sync_recall";
     public static final String KEY_LEGACY_FALLBACK = "legacy_fallback";
+    public static final String KEY_SHOW_GRAY_TIP = "show_gray_tip";
+    public static final String KEY_GRAY_TIP_TEMPLATE = "gray_tip_template";
     public static final String KEY_DIAGNOSTICS = "diagnostics";
 
     public static final boolean DEFAULT_ENABLED = true;
     public static final boolean DEFAULT_BLOCK_ONLINE_RECALL = true;
     public static final boolean DEFAULT_STRIP_SYNC_RECALL = true;
     public static final boolean DEFAULT_LEGACY_FALLBACK = true;
+    public static final boolean DEFAULT_SHOW_GRAY_TIP = true;
+    public static final String DEFAULT_GRAY_TIP_TEMPLATE = "{operator}尝试撤回一条消息";
     public static final boolean DEFAULT_DIAGNOSTICS = true;
+    public static final int MAX_GRAY_TIP_TEMPLATE_LENGTH = 160;
 
     public static final String LOG_AUTHORITY = MODULE_PACKAGE + ".logs";
     public static final Uri LOG_URI = Uri.parse("content://" + LOG_AUTHORITY);
