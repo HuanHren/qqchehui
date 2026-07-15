@@ -15,6 +15,10 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 public final class MainActivity extends Activity {
     private SharedPreferences preferences;
     private TextView logStatus;
@@ -28,18 +32,17 @@ public final class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(22), dp(28), dp(22), dp(36));
+        root.setPadding(dp(20), dp(24), dp(20), dp(36));
         scroll.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         ));
 
-        TextView title = text("QQ 防撤回 · LSPosed", 26, true);
-        root.addView(title);
+        root.addView(text("QQ 防撤回 · NT v3.0", 25, true));
         root.addView(text(
-                "适配目标：Android 15、QQ 9.2.10、LSPosed Zygisk。\n\n"
-                        + "模块让 QQ 的撤回流程继续运行以显示小灰条，只尝试阻止原消息从本地消息列表中被移除。",
-                16,
+                "目标环境：Android 15、QQ 9.2.10、LSPosed Zygisk。\n\n"
+                        + "v3.0 不再依赖 k/V/Z 删除链路，而是在 QQ NT 的 onMsfPush 入口识别并阻断撤回推送。",
+                15,
                 false
         ));
 
@@ -49,9 +52,19 @@ public final class MainActivity extends Activity {
                 ModulePrefs.DEFAULT_ENABLED
         ));
         root.addView(option(
-                "兼容模式（推荐开启）",
-                ModulePrefs.KEY_AGGRESSIVE,
-                ModulePrefs.DEFAULT_AGGRESSIVE
+                "阻断在线撤回推送（推荐）",
+                ModulePrefs.KEY_BLOCK_ONLINE_RECALL,
+                ModulePrefs.DEFAULT_BLOCK_ONLINE_RECALL
+        ));
+        root.addView(option(
+                "过滤启动/重连时的同步撤回（推荐）",
+                ModulePrefs.KEY_STRIP_SYNC_RECALL,
+                ModulePrefs.DEFAULT_STRIP_SYNC_RECALL
+        ));
+        root.addView(option(
+                "启用旧消息链路备用拦截",
+                ModulePrefs.KEY_LEGACY_FALLBACK,
+                ModulePrefs.DEFAULT_LEGACY_FALLBACK
         ));
         root.addView(option(
                 "详细诊断日志",
@@ -61,21 +74,21 @@ public final class MainActivity extends Activity {
 
         root.addView(text("\n模块专属日志", 21, true));
         root.addView(text(
-                "这里只显示本模块产生的 [QQAntiRevoke] 日志，不会混入其他 LSPosed 模块。"
-                        + "安装此版本后，需要强制停止并重新打开 QQ，日志才会开始写入。",
+                "日志通过独立 ContentProvider 从 QQ 进程写回本 App，只接受 QQ 与模块自身 UID，"
+                        + "不会混入其他 LSPosed 模块。",
                 14,
                 false
         ));
 
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        actions.addView(actionButton("刷新", this::refreshLogs), weightedButtonParams());
-        actions.addView(actionButton("复制", this::copyLogs), weightedButtonParams());
-        actions.addView(actionButton("清空", this::clearLogs), weightedButtonParams());
-        root.addView(actions, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        LinearLayout firstActions = horizontalRow();
+        firstActions.addView(actionButton("刷新", this::refreshLogs), weightedButtonParams());
+        firstActions.addView(actionButton("复制", this::copyLogs), weightedButtonParams());
+        root.addView(firstActions);
+
+        LinearLayout secondActions = horizontalRow();
+        secondActions.addView(actionButton("测试日志通道", this::testLogChannel), weightedButtonParams());
+        secondActions.addView(actionButton("清空", this::clearLogs), weightedButtonParams());
+        root.addView(secondActions);
 
         logStatus = text("", 13, false);
         logStatus.setPadding(0, dp(10), 0, dp(8));
@@ -84,8 +97,8 @@ public final class MainActivity extends Activity {
         logView = text("", 12, false);
         logView.setTypeface(Typeface.MONOSPACE);
         logView.setTextIsSelectable(true);
-        logView.setMinHeight(dp(260));
-        logView.setPadding(dp(12), dp(12), dp(12), dp(12));
+        logView.setMinHeight(dp(320));
+        logView.setPadding(dp(10), dp(10), dp(10), dp(10));
         logView.setBackgroundResource(android.R.drawable.edit_text);
         root.addView(logView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -93,13 +106,14 @@ public final class MainActivity extends Activity {
         ));
 
         root.addView(text(
-                "\n使用步骤：\n"
-                        + "1. 在 LSPosed 中启用本模块。\n"
-                        + "2. 作用域只勾选 QQ。\n"
-                        + "3. 强制停止并重新打开 QQ。\n"
-                        + "4. 测试一次撤回后返回本页面，点击“刷新”。\n\n"
-                        + "QQ 更新后混淆方法可能变化，请先使用不重要的消息测试。",
-                15,
+                "\n测试顺序：\n"
+                        + "1. 先点“测试日志通道”，确认 App 能显示自检日志。\n"
+                        + "2. 在 LSPosed 中确认作用域只勾选 QQ。\n"
+                        + "3. 强制停止 QQ，再重新打开。\n"
+                        + "4. 回到这里刷新，应看到“v3.0 安装完成”。\n"
+                        + "5. 让另一个账号撤回一条普通文字消息，再刷新日志。\n\n"
+                        + "设置变更需要强制停止并重启 QQ 后生效。",
+                14,
                 false
         ));
 
@@ -110,7 +124,9 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (logView != null) refreshLogs();
+        if (logView != null) {
+            refreshLogs();
+        }
     }
 
     @SuppressWarnings("deprecation")
@@ -125,14 +141,20 @@ public final class MainActivity extends Activity {
     private Switch option(String label, String key, boolean defaultValue) {
         Switch view = new Switch(this);
         view.setText(label);
-        view.setTextSize(17f);
-        view.setPadding(0, dp(14), 0, dp(14));
+        view.setTextSize(16f);
+        view.setPadding(0, dp(12), 0, dp(12));
         view.setChecked(preferences.getBoolean(key, defaultValue));
         view.setOnCheckedChangeListener((button, checked) -> {
             preferences.edit().putBoolean(key, checked).apply();
-            Toast.makeText(this, "已保存，重启 QQ 后生效", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "已保存，强制停止并重启 QQ 后生效", Toast.LENGTH_SHORT).show();
         });
         return view;
+    }
+
+    private LinearLayout horizontalRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        return row;
     }
 
     private Button actionButton(String label, Runnable action) {
@@ -154,13 +176,20 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshLogs() {
-        String logs = ModuleLogStore.readAll(this);
+        Bundle result = callLogProvider(ModulePrefs.LOG_METHOD_READ, null);
+        if (result == null || !result.getBoolean(ModulePrefs.LOG_RESULT_OK, false)) {
+            String error = result == null
+                    ? "日志 Provider 未返回结果"
+                    : result.getString(ModulePrefs.LOG_RESULT_ERROR, "未知错误");
+            logStatus.setText("读取失败：" + error);
+            logView.setText("请确认安装的是 v3.0 APK。若刚覆盖安装，请先打开一次本 App。\n\n" + error);
+            return;
+        }
+
+        String logs = result.getString(ModulePrefs.LOG_RESULT_TEXT, "").trim();
         if (logs.isEmpty()) {
             logStatus.setText("暂无模块专属日志");
-            logView.setText(
-                    "请确认已安装最新 APK，然后强制停止并重新打开 QQ。\n"
-                            + "看到消息后测试一次撤回，再回到这里点击“刷新”。"
-            );
+            logView.setText("先点击“测试日志通道”。自检成功后，强制停止并重新打开 QQ。 ");
             return;
         }
 
@@ -170,31 +199,67 @@ public final class MainActivity extends Activity {
     }
 
     private void copyLogs() {
-        String logs = ModuleLogStore.readAll(this);
-        if (logs.isEmpty()) {
+        Bundle result = callLogProvider(ModulePrefs.LOG_METHOD_READ, null);
+        String logs = result == null ? "" : result.getString(ModulePrefs.LOG_RESULT_TEXT, "");
+        if (logs.trim().isEmpty()) {
             Toast.makeText(this, "目前没有可复制的日志", Toast.LENGTH_SHORT).show();
             return;
         }
-
         ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         if (clipboard != null) {
-            clipboard.setPrimaryClip(ClipData.newPlainText("QQAntiRevoke 日志", logs));
+            clipboard.setPrimaryClip(ClipData.newPlainText("QQAntiRevoke v3 日志", logs));
             Toast.makeText(this, "模块日志已复制", Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void clearLogs() {
-        ModuleLogStore.clear(this);
+    private void testLogChannel() {
+        Bundle extras = new Bundle();
+        String time = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
+        extras.putString(
+                ModulePrefs.LOG_EXTRA_LINE,
+                "[QQAntiRevoke] App 日志 Provider 自检成功，time=" + time
+        );
+        Bundle result = callLogProvider(ModulePrefs.LOG_METHOD_APPEND, extras);
+        if (result != null && result.getBoolean(ModulePrefs.LOG_RESULT_OK, false)) {
+            Toast.makeText(this, "日志通道正常", Toast.LENGTH_SHORT).show();
+        } else {
+            String error = result == null
+                    ? "Provider 未返回结果"
+                    : result.getString(ModulePrefs.LOG_RESULT_ERROR, "未知错误");
+            Toast.makeText(this, "日志通道失败：" + error, Toast.LENGTH_LONG).show();
+        }
         refreshLogs();
-        Toast.makeText(this, "模块日志已清空", Toast.LENGTH_SHORT).show();
+    }
+
+    private void clearLogs() {
+        Bundle result = callLogProvider(ModulePrefs.LOG_METHOD_CLEAR, null);
+        if (result != null && result.getBoolean(ModulePrefs.LOG_RESULT_OK, false)) {
+            Toast.makeText(this, "模块日志已清空", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "清空失败", Toast.LENGTH_SHORT).show();
+        }
+        refreshLogs();
+    }
+
+    private Bundle callLogProvider(String method, Bundle extras) {
+        try {
+            return getContentResolver().call(ModulePrefs.LOG_URI, method, null, extras);
+        } catch (Throwable throwable) {
+            Bundle error = new Bundle();
+            error.putBoolean(ModulePrefs.LOG_RESULT_OK, false);
+            error.putString(ModulePrefs.LOG_RESULT_ERROR, throwable.toString());
+            return error;
+        }
     }
 
     private TextView text(String value, int size, boolean bold) {
         TextView view = new TextView(this);
         view.setText(value);
         view.setTextSize(size);
-        view.setPadding(0, 0, 0, dp(12));
-        if (bold) view.setTypeface(Typeface.DEFAULT_BOLD);
+        view.setPadding(0, 0, 0, dp(10));
+        if (bold) {
+            view.setTypeface(Typeface.DEFAULT_BOLD);
+        }
         return view;
     }
 
