@@ -1,115 +1,130 @@
-# QQ 防撤回 LSPosed 模块 v2.1
+# QQ 防撤回 NT v3.0
 
-目标环境：
+面向以下测试环境：
 
 - Android 15
-- QQ 9.2.10（11310）
+- QQ 9.2.10（versionCode 11310）
 - LSPosed Zygisk
 - QQ 包名：`com.tencent.mobileqq`
 
-## 功能目标
+## v3.0 为什么重建
 
-QQ 的撤回处理入口继续正常执行，因此“对方撤回了一条消息”小灰条仍有机会正常生成；模块只尝试阻止撤回调用链中负责移除原消息的 `V(...)` / `Z(...)` 方法。
+v2.x 依赖 `BaseMessageManager.k/V/Z` 的同步调用链。真机日志证明这些方法虽然可以 Hook，但 QQ 9.2.10 的实际撤回主要走 QQ NT 内核推送链路，因此 v2.x 无法可靠阻止消息消失。
 
-## v2.1 更新
-
-- App 内新增“模块专属日志”。
-- Hook 进程会把 `[QQAntiRevoke]` 日志单独发送到模块 App。
-- 专属日志存储在模块 App 的私有目录，不会混入其他 LSPosed 模块。
-- App 支持刷新、复制和清空日志。
-- 日志文件达到约 1 MB 后自动轮换，避免无限增长。
-- 日志不读取或记录聊天正文。
-
-安装 v2.1 后，必须强制停止并重新打开 QQ，新的专属日志通道才会生效。旧版 LSPosed 混合日志不会自动导入 App。
-
-## Hook 改进
-
-- 使用标准 LSPosed/Xposed 模块入口。
-- 使用 `ThreadLocal` 撤回上下文，不再使用跨线程全局 `revokeDepth`。
-- 只 Hook 符合参数签名的 `k / V / Z` 重载。
-- 尝试用 `msgUid / uniseq / shmsgseq / msgSeq / seq / msgId / time` 等字段匹配撤回目标与原消息。
-- 提供兼容模式：精确标识匹配失败时，只在同一线程撤回调用链内拦截。
-- 根据目标方法返回类型设置安全默认返回值。
-- 所有 Hook 回调都有异常保护，解析失败时优先放行 QQ 原调用。
-
-## 安装与查看日志
-
-1. 从 GitHub Actions 下载并安装 `QQAntiRevoke-v2.1.0-QQ9.2.10-debug.apk`。
-2. 在 LSPosed 中启用“QQ 防撤回”。
-3. 作用域只勾选 QQ：`com.tencent.mobileqq`。
-4. 打开模块 App，开启“启用防撤回”“兼容模式”和“详细诊断日志”。
-5. 强制停止 QQ 后重新打开。
-6. 测试一次撤回。
-7. 返回模块 App，在“模块专属日志”区域点击“刷新”。
-
-也可以通过 ADB 强制停止 QQ：
-
-```powershell
-adb shell am force-stop com.tencent.mobileqq
-```
-
-正常启动后，App 日志至少应出现：
+v3.0 删除了原来的 `V/Z + ThreadLocal` 方案，改为 Hook：
 
 ```text
-[QQAntiRevoke] 模块专属日志通道已连接
-[QQAntiRevoke] 宿主 QQ=9.2.10(...)
-[QQAntiRevoke] 找到类 com.tencent.imcore.message.BaseMessageManager
-[QQAntiRevoke] Hook 撤回入口 ...#k[...]
-[QQAntiRevoke] Hook 单条移除 ...#V[...]
-[QQAntiRevoke] 安装完成：撤回入口=1，移除方法=3
+com.tencent.qqnt.kernel.nativeinterface.IQQNTWrapperSession$CppProxy.onMsfPush
 ```
 
-发生撤回时，应关注：
+目前识别两类 QQ NT 命令：
 
 ```text
-[QQAntiRevoke] 进入撤回链路
-[QQAntiRevoke] 阻止单条消息移除：精确标识匹配 ...
+trpc.msg.olpush.OlPushService.MsgPush
+trpc.msg.register_proxy.RegisterProxy.InfoSyncPush
 ```
 
-或者：
+在线撤回通过 `ContentHead.type/sub_type` 判断：
+
+- 单聊撤回：`528 / 138`
+- 群聊撤回：`732 / 17`
+
+对在线撤回，模块在 `onMsfPush` 执行前终止该次撤回推送。对启动或重连时的 `InfoSyncPush`，模块只移除顶层字段 8（`sync_msg_recall`），其他同步字段原样保留。
+
+同时保留一个精确签名的旧链路备用入口：
 
 ```text
-[QQAntiRevoke] 阻止单条消息移除：兼容模式（撤回线程内）
+BaseMessageManager.k(ArrayList, boolean)
 ```
 
-## GitHub Actions 自动编译
+备用入口只在真实调用时直接阻断整个撤回处理，不再拦截普通消息删除方法。
 
-工作流位于：
+## 模块专属日志
+
+v3.0 不再使用跨应用广播保存日志，而是使用导出的 `ContentProvider.call()`：
 
 ```text
-.github/workflows/build-apk.yml
+content://com.huanhren.qqantirevoke.logs
 ```
 
-向 `main` 推送代码或在 Actions 页面手动点击 `Run workflow`，会自动使用 JDK 17、Android SDK 35 和 Gradle 8.9 构建已签名的 Debug APK：
+Provider 会校验调用 UID，只接受 QQ 与模块 App 自身。模块 App 提供：
+
+- 刷新日志
+- 复制日志
+- 清空日志
+- 测试日志通道
+
+日志文件只接收以 `[QQAntiRevoke]` 开头的内容，达到约 1 MiB 后自动轮换。
+
+## 编译
+
+GitHub Actions 会在推送到 `main` 后自动执行：
 
 ```text
-QQAntiRevoke-v2.1.0-QQ9.2.10-debug.apk
+:app:testDebugUnitTest
+:app:assembleDebug
 ```
 
-构建产物保留 30 天，并附带 `SHA256SUMS.txt`。
+单元测试覆盖：
 
-## 本地编译
+- NT 单聊撤回 protobuf
+- NT 群聊撤回 protobuf
+- `InfoSyncPush.sync_msg_recall` 字段移除
+- 普通非撤回推送放行
 
-需要 JDK 17 和 Android SDK Platform 35：
-
-```powershell
-.\build-debug.ps1
-```
-
-生成位置：
+构建产物：
 
 ```text
-app\build\outputs\apk\debug\app-debug.apk
+QQAntiRevoke-NT-v3.0.0-QQ9.2.10-debug.apk
 ```
 
-工程通过 `compileOnly 'de.robv.android.xposed:api:82'` 编译，Xposed API 不会打包进 APK，运行时由 LSPosed 提供。
+手机端下载路径：
+
+```text
+仓库 → Actions → Build Installable APK → 最新绿色构建 → Artifacts
+```
+
+## 安装与测试
+
+1. 覆盖安装 v3.0 APK。
+2. 打开模块 App，点击“测试日志通道”。
+3. 确认页面出现 `App 日志 Provider 自检成功`。
+4. 在 LSPosed 中启用模块，作用域只勾选 QQ。
+5. 强制停止 QQ，再重新打开。
+6. 返回模块 App 刷新日志。
+7. 确认出现：
+
+```text
+v3.0 模块专属日志 Provider 已连接
+Hook NT 推送入口 ...onMsfPush...
+v3.0 安装完成：NT onMsfPush=1...
+```
+
+8. 让另一个账号撤回一条普通文字消息，再刷新日志。
+
+命中在线撤回时应出现：
+
+```text
+检测到 NT 在线撤回推送
+已阻断 NT 在线撤回原处理
+```
+
+命中同步撤回时应出现：
+
+```text
+检测到 NT 同步撤回数据
+已从 InfoSyncPush 移除 sync_msg_recall 字段
+```
 
 ## 当前限制
 
-QQ 是闭源且高度混淆的应用。虽然 QQ 9.2.10 中已确认 `BaseMessageManager`、`C2CMessageManager`、`k/V/Z` 方法存在并能被 Hook，但当前防撤回没有生效，仍需通过撤回发生时的专属日志继续定位：
+v3.0 是 Java 层 QQ NT 推送拦截版本，还没有集成 QAuxiliary 使用的 `libkernel.so` ARM64 原生 inline hook。因此：
 
-- 没有“进入撤回链路”：当前 `k()` 不是实际撤回入口。
-- 有“进入撤回链路”但没有“阻止移除”：删除可能是异步或跨线程执行。
-- 已显示“阻止移除”但消息仍消失：QQ 可能还有数据库、缓存、状态替换或同步路径。
+- 如果 QQ 在 `onMsfPush` 之前已经由 native 内核完成删除，Java 层阻断可能仍不足。
+- 如果 v3.0 能记录撤回但消息仍消失，下一阶段必须进入 NDK/ARM64 原生 Hook，而不是重新扩大 Java 删除方法拦截。
+- 当前只针对 QQ 9.2.10 验证，不承诺兼容其他 QQ 版本。
+- 当前优先保证原消息不被删除，暂未重建 QAuxiliary 那种可点击的 NT 本地灰条。
 
-请先使用不重要的消息测试。QQ 更新后需要重新验证兼容性。
+## 技术参考与许可说明
+
+NT 撤回命令、消息类型判断和整体分层思路参考了 [QAuxiliary](https://github.com/cinit/QAuxiliary) 的公开实现。QAuxiliary 使用 AGPLv3 并附带项目 EULA。本仓库没有复制其完整防撤回类、native inline-hook 实现或 UI 框架，而是基于公开协议字段独立编写最小实现。进一步复制或移植其源码前，必须重新审查并遵守其许可证要求。
