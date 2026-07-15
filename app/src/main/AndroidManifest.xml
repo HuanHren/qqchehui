@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <queries>
+        <package android:name="com.tencent.mobileqq" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:description="@string/module_description"
@@ -18,14 +22,12 @@
             </intent-filter>
         </activity>
 
-        <receiver
-            android:name=".LogReceiver"
+        <provider
+            android:name=".ModuleLogProvider"
+            android:authorities="com.huanhren.qqantirevoke.logs"
             android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.huanhren.qqantirevoke.ACTION_MODULE_LOG" />
-            </intent-filter>
-        </receiver>
+            android:exported="true"
+            android:grantUriPermissions="false" />
 
         <meta-data android:name="xposedmodule" android:value="true" />
         <meta-data android:name="xposeddescription" android:value="@string/module_description" />
