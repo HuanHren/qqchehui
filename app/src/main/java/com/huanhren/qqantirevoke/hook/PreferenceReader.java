@@ -28,8 +28,22 @@ final class PreferenceReader {
             preferences.reload();
             return new Settings(
                     preferences.getBoolean(ModulePrefs.KEY_ENABLED, ModulePrefs.DEFAULT_ENABLED),
-                    preferences.getBoolean(ModulePrefs.KEY_AGGRESSIVE, ModulePrefs.DEFAULT_AGGRESSIVE),
-                    preferences.getBoolean(ModulePrefs.KEY_DIAGNOSTICS, ModulePrefs.DEFAULT_DIAGNOSTICS)
+                    preferences.getBoolean(
+                            ModulePrefs.KEY_BLOCK_ONLINE_RECALL,
+                            ModulePrefs.DEFAULT_BLOCK_ONLINE_RECALL
+                    ),
+                    preferences.getBoolean(
+                            ModulePrefs.KEY_STRIP_SYNC_RECALL,
+                            ModulePrefs.DEFAULT_STRIP_SYNC_RECALL
+                    ),
+                    preferences.getBoolean(
+                            ModulePrefs.KEY_LEGACY_FALLBACK,
+                            ModulePrefs.DEFAULT_LEGACY_FALLBACK
+                    ),
+                    preferences.getBoolean(
+                            ModulePrefs.KEY_DIAGNOSTICS,
+                            ModulePrefs.DEFAULT_DIAGNOSTICS
+                    )
             );
         } catch (Throwable throwable) {
             HookLog.error("读取模块设置失败，将使用默认值", throwable);
@@ -39,23 +53,46 @@ final class PreferenceReader {
 
     static final class Settings {
         private final boolean enabled;
-        private final boolean aggressive;
+        private final boolean blockOnlineRecall;
+        private final boolean stripSyncRecall;
+        private final boolean legacyFallback;
         private final boolean diagnostics;
 
-        Settings(boolean enabled, boolean aggressive, boolean diagnostics) {
+        Settings(boolean enabled, boolean blockOnlineRecall, boolean stripSyncRecall,
+                boolean legacyFallback, boolean diagnostics) {
             this.enabled = enabled;
-            this.aggressive = aggressive;
+            this.blockOnlineRecall = blockOnlineRecall;
+            this.stripSyncRecall = stripSyncRecall;
+            this.legacyFallback = legacyFallback;
             this.diagnostics = diagnostics;
         }
 
-        boolean enabled() { return enabled; }
-        boolean aggressive() { return aggressive; }
-        boolean diagnostics() { return diagnostics; }
+        boolean enabled() {
+            return enabled;
+        }
+
+        boolean blockOnlineRecall() {
+            return blockOnlineRecall;
+        }
+
+        boolean stripSyncRecall() {
+            return stripSyncRecall;
+        }
+
+        boolean legacyFallback() {
+            return legacyFallback;
+        }
+
+        boolean diagnostics() {
+            return diagnostics;
+        }
 
         static Settings defaults() {
             return new Settings(
                     ModulePrefs.DEFAULT_ENABLED,
-                    ModulePrefs.DEFAULT_AGGRESSIVE,
+                    ModulePrefs.DEFAULT_BLOCK_ONLINE_RECALL,
+                    ModulePrefs.DEFAULT_STRIP_SYNC_RECALL,
+                    ModulePrefs.DEFAULT_LEGACY_FALLBACK,
                     ModulePrefs.DEFAULT_DIAGNOSTICS
             );
         }
