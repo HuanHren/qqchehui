@@ -11,9 +11,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://api.xposed.info/") }
     }
 }
 
 rootProject.name = "QQAntiRevoke"
 include(":app")
-include(":xposed-stubs")
