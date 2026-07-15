@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">QQ 防撤回 NT</string>
-    <string name="module_description">面向 QQ 9.2.10 NT 架构，在 onMsfPush 入口识别并阻断在线与同步撤回数据。</string>
+    <string name="module_description">面向 QQ 9.2.10 NT 架构，保留被撤回消息，并插入可自定义的本地撤回灰条。</string>
 </resources>
