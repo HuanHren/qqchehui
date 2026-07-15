@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build-apk:
-    name: Build QQAntiRevoke APK
+    name: Test and build QQAntiRevoke NT APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -39,11 +39,11 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Build signed debug APK
+      - name: Run parser tests and build signed debug APK
         shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace clean :app:assembleDebug
+          ./gradlew --no-daemon --stacktrace clean :app:testDebugUnitTest :app:assembleDebug
 
       - name: Prepare artifact
         id: prepare
@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           SOURCE="app/build/outputs/apk/debug/app-debug.apk"
-          NAME="QQAntiRevoke-v2.1.0-QQ9.2.10-debug.apk"
+          NAME="QQAntiRevoke-NT-v3.0.0-QQ9.2.10-debug.apk"
           test -f "$SOURCE"
           mkdir -p dist
           cp "$SOURCE" "dist/$NAME"
@@ -64,7 +64,7 @@ jobs:
         id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: QQAntiRevoke-v2.1.0-QQ9.2.10-debug
+          name: QQAntiRevoke-NT-v3.0.0-QQ9.2.10-debug
           path: dist/
           if-no-files-found: error
           retention-days: 30
@@ -73,11 +73,12 @@ jobs:
         shell: bash
         run: |
           {
-            echo "## APK 构建成功"
+            echo "## QQ 防撤回 NT v3.0 构建成功"
             echo
             echo "- 文件：\`${{ steps.prepare.outputs.apk_name }}\`"
             echo "- SHA-256：\`${{ steps.prepare.outputs.apk_sha256 }}\`"
+            echo "- 单元测试：NT C2C、群聊和 InfoSync 撤回解析已通过"
             echo "- [点击下载构建产物](${{ steps.upload.outputs.artifact-url }})"
             echo
-            echo "下载 ZIP 后解压即可得到 APK。安装后在 LSPosed 中启用模块，并只勾选 QQ 作用域。"
+            echo "下载 ZIP 后解压得到 APK。覆盖安装后，先打开模块 App 测试日志 Provider，再强制停止并重新打开 QQ。"
           } >> "$GITHUB_STEP_SUMMARY"
