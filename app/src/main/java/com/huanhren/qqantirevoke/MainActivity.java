@@ -15,14 +15,23 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayDeque;
 import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 public final class MainActivity extends Activity {
+    private static final String LOG_PREFIX = "[QQAntiRevoke]";
+    private static final int MAX_ROOT_LOG_LINES = 1000;
+
     private SharedPreferences preferences;
     private TextView logStatus;
     private TextView logView;
+    private String lastDisplayedLogs = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,21 +83,27 @@ public final class MainActivity extends Activity {
 
         root.addView(text("\n模块专属日志", 21, true));
         root.addView(text(
-                "日志通过独立 ContentProvider 从 QQ 进程写回本 App，只接受 QQ 与模块自身 UID，"
-                        + "不会混入其他 LSPosed 模块。",
+                "优先通过独立 ContentProvider 接收 QQ 进程日志。若 Provider 受 Android 15 宿主可见性限制，"
+                        + "可点击“Root 读取 LSPosed 日志”，App 会执行只读 logcat 并仅保留本模块行。",
                 14,
                 false
         ));
 
         LinearLayout firstActions = horizontalRow();
-        firstActions.addView(actionButton("刷新", this::refreshLogs), weightedButtonParams());
+        firstActions.addView(actionButton("刷新 Provider", this::refreshLogs), weightedButtonParams());
         firstActions.addView(actionButton("复制", this::copyLogs), weightedButtonParams());
         root.addView(firstActions);
 
         LinearLayout secondActions = horizontalRow();
-        secondActions.addView(actionButton("测试日志通道", this::testLogChannel), weightedButtonParams());
-        secondActions.addView(actionButton("清空", this::clearLogs), weightedButtonParams());
+        secondActions.addView(actionButton("测试 Provider", this::testLogChannel), weightedButtonParams());
+        secondActions.addView(actionButton("清空 Provider", this::clearLogs), weightedButtonParams());
         root.addView(secondActions);
+
+        Button rootLogButton = actionButton("Root 读取 LSPosed 日志（仅过滤本模块）", this::readRootFilteredLogs);
+        root.addView(rootLogButton, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
 
         logStatus = text("", 13, false);
         logStatus.setPadding(0, dp(10), 0, dp(8));
@@ -107,12 +122,13 @@ public final class MainActivity extends Activity {
 
         root.addView(text(
                 "\n测试顺序：\n"
-                        + "1. 先点“测试日志通道”，确认 App 能显示自检日志。\n"
+                        + "1. 先点“测试 Provider”，确认 App 自身日志存储正常。\n"
                         + "2. 在 LSPosed 中确认作用域只勾选 QQ。\n"
                         + "3. 强制停止 QQ，再重新打开。\n"
-                        + "4. 回到这里刷新，应看到“v3.0 安装完成”。\n"
-                        + "5. 让另一个账号撤回一条普通文字消息，再刷新日志。\n\n"
-                        + "设置变更需要强制停止并重启 QQ 后生效。",
+                        + "4. 先刷新 Provider；没有 QQ 日志时改点 Root 读取。\n"
+                        + "5. 确认出现“v3.0 安装完成”。\n"
+                        + "6. 让另一个账号撤回一条普通文字消息，再读取日志。\n\n"
+                        + "首次 Root 读取会弹出 Magisk 授权，请允许。设置变更需要强制停止并重启 QQ 后生效。",
                 14,
                 false
         ));
@@ -181,34 +197,31 @@ public final class MainActivity extends Activity {
             String error = result == null
                     ? "日志 Provider 未返回结果"
                     : result.getString(ModulePrefs.LOG_RESULT_ERROR, "未知错误");
-            logStatus.setText("读取失败：" + error);
-            logView.setText("请确认安装的是 v3.0 APK。若刚覆盖安装，请先打开一次本 App。\n\n" + error);
+            showLogs("读取 Provider 失败：" + error,
+                    "请确认安装的是 v3.0 APK。Provider 不可用时点击 Root 读取。\n\n" + error);
             return;
         }
 
         String logs = result.getString(ModulePrefs.LOG_RESULT_TEXT, "").trim();
         if (logs.isEmpty()) {
-            logStatus.setText("暂无模块专属日志");
-            logView.setText("先点击“测试日志通道”。自检成功后，强制停止并重新打开 QQ。 ");
+            showLogs("Provider 暂无日志",
+                    "先点击“测试 Provider”。自检成功后，强制停止并重新打开 QQ。若仍无 QQ 日志，请使用 Root 读取。");
             return;
         }
 
         int lines = logs.split("\\R").length;
-        logStatus.setText("已记录 " + lines + " 行，仅包含 QQAntiRevoke 日志");
-        logView.setText(logs);
+        showLogs("Provider 已记录 " + lines + " 行，仅包含 QQAntiRevoke 日志", logs);
     }
 
     private void copyLogs() {
-        Bundle result = callLogProvider(ModulePrefs.LOG_METHOD_READ, null);
-        String logs = result == null ? "" : result.getString(ModulePrefs.LOG_RESULT_TEXT, "");
-        if (logs.trim().isEmpty()) {
+        if (lastDisplayedLogs.trim().isEmpty()) {
             Toast.makeText(this, "目前没有可复制的日志", Toast.LENGTH_SHORT).show();
             return;
         }
         ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         if (clipboard != null) {
-            clipboard.setPrimaryClip(ClipData.newPlainText("QQAntiRevoke v3 日志", logs));
-            Toast.makeText(this, "模块日志已复制", Toast.LENGTH_SHORT).show();
+            clipboard.setPrimaryClip(ClipData.newPlainText("QQAntiRevoke v3 日志", lastDisplayedLogs));
+            Toast.makeText(this, "当前显示的日志已复制", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -221,12 +234,12 @@ public final class MainActivity extends Activity {
         );
         Bundle result = callLogProvider(ModulePrefs.LOG_METHOD_APPEND, extras);
         if (result != null && result.getBoolean(ModulePrefs.LOG_RESULT_OK, false)) {
-            Toast.makeText(this, "日志通道正常", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Provider 日志通道正常", Toast.LENGTH_SHORT).show();
         } else {
             String error = result == null
                     ? "Provider 未返回结果"
                     : result.getString(ModulePrefs.LOG_RESULT_ERROR, "未知错误");
-            Toast.makeText(this, "日志通道失败：" + error, Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Provider 日志通道失败：" + error, Toast.LENGTH_LONG).show();
         }
         refreshLogs();
     }
@@ -234,11 +247,65 @@ public final class MainActivity extends Activity {
     private void clearLogs() {
         Bundle result = callLogProvider(ModulePrefs.LOG_METHOD_CLEAR, null);
         if (result != null && result.getBoolean(ModulePrefs.LOG_RESULT_OK, false)) {
-            Toast.makeText(this, "模块日志已清空", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Provider 日志已清空", Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(this, "清空失败", Toast.LENGTH_SHORT).show();
         }
         refreshLogs();
+    }
+
+    private void readRootFilteredLogs() {
+        logStatus.setText("正在请求 Root 并读取 logcat…");
+        new Thread(() -> {
+            ArrayDeque<String> matched = new ArrayDeque<>();
+            String error = null;
+            Process process = null;
+            try {
+                process = new ProcessBuilder("su", "-c", "logcat -d -v threadtime")
+                        .redirectErrorStream(true)
+                        .start();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                        process.getInputStream(),
+                        StandardCharsets.UTF_8
+                ))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (!line.contains(LOG_PREFIX)) {
+                            continue;
+                        }
+                        if (matched.size() >= MAX_ROOT_LOG_LINES) {
+                            matched.removeFirst();
+                        }
+                        matched.addLast(line);
+                    }
+                }
+                if (!process.waitFor(12, TimeUnit.SECONDS)) {
+                    process.destroyForcibly();
+                    error = "Root logcat 读取超时";
+                } else if (process.exitValue() != 0) {
+                    error = "su/logcat 返回代码 " + process.exitValue()
+                            + "。请在 Magisk 中允许本 App 的 Root 权限。";
+                }
+            } catch (Throwable throwable) {
+                error = throwable.toString();
+                if (process != null) {
+                    process.destroy();
+                }
+            }
+
+            String finalError = error;
+            String logs = String.join("\n", matched);
+            runOnUiThread(() -> {
+                if (finalError != null) {
+                    showLogs("Root 日志读取失败", finalError);
+                } else if (logs.isEmpty()) {
+                    showLogs("Root 日志中没有 QQAntiRevoke 记录",
+                            "请先强制停止并重新打开 QQ，再测试一次撤回。确认 LSPosed 模块和 QQ 作用域已启用。");
+                } else {
+                    showLogs("Root 已过滤出 " + matched.size() + " 行 QQAntiRevoke 日志", logs);
+                }
+            });
+        }, "QQAntiRevoke-RootLogReader").start();
     }
 
     private Bundle callLogProvider(String method, Bundle extras) {
@@ -250,6 +317,12 @@ public final class MainActivity extends Activity {
             error.putString(ModulePrefs.LOG_RESULT_ERROR, throwable.toString());
             return error;
         }
+    }
+
+    private void showLogs(String status, String logs) {
+        lastDisplayedLogs = logs == null ? "" : logs;
+        logStatus.setText(status);
+        logView.setText(lastDisplayedLogs);
     }
 
     private TextView text(String value, int size, boolean bold) {
