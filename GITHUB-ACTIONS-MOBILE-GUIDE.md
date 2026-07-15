@@ -1,52 +1,48 @@
-# 手机上传 GitHub 后自动编译 APK
+# 手机端使用 GitHub Actions 编译 v3.0 APK
 
-## 你要上传什么
+仓库已经包含完整源码与自动构建工作流，不需要再上传 ZIP。
 
-先解压源码包，然后把源码目录里面的文件和文件夹上传到 GitHub 仓库根目录。
+## 自动构建
 
-仓库首页必须直接看到：
-
-```text
-.github
-app
-xposed-stubs
-build.gradle
-settings.gradle
-gradlew
-```
-
-不能只把 ZIP 文件上传到仓库。
-
-## 自动编译
-
-上传到 `main` 或 `master` 分支后，GitHub 会自动运行：
+每次 `main` 分支更新后，GitHub 会自动运行：
 
 ```text
 Actions → Build Installable APK
 ```
 
-构建成功会显示绿色对勾。
+工作流会先执行 NT 撤回 protobuf 单元测试，再编译 Debug APK。
 
 ## 下载 APK
 
-打开成功的工作流运行记录，在构建摘要中点击：
+1. 打开仓库的 `Actions` 页面。
+2. 进入最新的 `Build Installable APK`。
+3. 等待状态变成绿色对勾。
+4. 打开运行记录，在 `Artifacts` 下载：
 
 ```text
-点击下载 APK
+QQAntiRevoke-NT-v3.0.0-QQ9.2.10-debug
 ```
 
-生成文件：
+下载的是 ZIP，解压后得到：
 
 ```text
-QQAntiRevoke-v2.0.0-QQ9.2.10-debug.apk
+QQAntiRevoke-NT-v3.0.0-QQ9.2.10-debug.apk
 ```
 
-该 APK 已使用 Debug 证书签名，可以直接安装测试。
+APK 使用 GitHub Actions 生成的 Debug 签名，可直接覆盖安装之前的 Debug 版本。
 
 ## 手动重新构建
 
 ```text
-仓库 → Actions → Build Installable APK → Run workflow
+仓库 → Actions → Build Installable APK → Run workflow → Run workflow
 ```
 
-构建文件保留 30 天，过期后重新运行即可。
+构建产物保留 30 天。过期后重新运行工作流即可。
+
+## 安装后的第一步
+
+1. 打开 `QQ 防撤回 NT` App。
+2. 点击“测试日志通道”。
+3. 确认出现 `App 日志 Provider 自检成功`。
+4. 强制停止并重新打开 QQ。
+5. 返回模块 App，刷新日志。
