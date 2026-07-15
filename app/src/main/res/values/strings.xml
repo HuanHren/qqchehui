@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">QQ 防撤回</string>
-    <string name="module_description">为 QQ 9.2.10 保留被撤回的原消息，同时允许撤回提示小灰条正常生成。</string>
+    <string name="module_description">为 QQ 9.2.10 保留被撤回的原消息，并在 App 内提供仅包含本模块内容的专属诊断日志。</string>
 </resources>
