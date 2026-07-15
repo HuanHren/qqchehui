@@ -32,6 +32,8 @@ public final class XposedEntry implements IXposedHookLoadPackage {
                             if (!INSTALLED.compareAndSet(false, true)) return;
                             try {
                                 Context context = (Context) param.args[0];
+                                HookLog.initialize(context);
+                                HookLog.info("模块专属日志通道已连接，进程=" + lpparam.processName);
                                 logHostVersion(context, lpparam.processName);
                                 ClassLoader loader = context.getClassLoader() != null
                                         ? context.getClassLoader()
