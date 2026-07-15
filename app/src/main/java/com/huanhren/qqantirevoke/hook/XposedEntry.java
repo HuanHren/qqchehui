@@ -28,7 +28,7 @@ public final class XposedEntry implements IXposedHookLoadPackage {
             return;
         }
 
-        XposedBridge.log("[QQAntiRevoke] v3.0 入口加载，等待 Application.attach，进程="
+        XposedBridge.log("[QQAntiRevoke] v3.1 入口加载，等待 Application.attach，进程="
                 + lpparam.processName);
         try {
             XposedHelpers.findAndHookMethod(
@@ -44,7 +44,7 @@ public final class XposedEntry implements IXposedHookLoadPackage {
                             try {
                                 Context context = (Context) param.args[0];
                                 HookLog.initialize(context, lpparam.processName);
-                                HookLog.info("v3.0 模块专属日志 Provider 已连接");
+                                HookLog.info("v3.1 模块专属日志 Provider 已连接");
                                 logHostVersion(context, lpparam.processName);
 
                                 ClassLoader loader = context.getClassLoader() != null
@@ -60,13 +60,14 @@ public final class XposedEntry implements IXposedHookLoadPackage {
 
                                 int ntPushHooks = new NtRecallPushHook(loader, preferences).install();
                                 int legacyHooks = new LegacyRecallFallbackHook(loader, preferences).install();
-                                HookLog.info("v3.0 安装完成：NT onMsfPush=" + ntPushHooks
-                                        + "，旧链路备用入口=" + legacyHooks);
+                                HookLog.info("v3.1 安装完成：NT onMsfPush=" + ntPushHooks
+                                        + "，旧链路备用入口=" + legacyHooks
+                                        + "，本地灰条=" + settings.showGrayTip());
                                 if (ntPushHooks == 0) {
                                     HookLog.info("警告：未安装 NT onMsfPush Hook；当前版本可能无法拦截 NT 撤回");
                                 }
                             } catch (Throwable throwable) {
-                                HookLog.error("Application.attach 后安装 v3.0 Hook 失败", throwable);
+                                HookLog.error("Application.attach 后安装 v3.1 Hook 失败", throwable);
                             }
                         }
                     }
