@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           SOURCE="app/build/outputs/apk/debug/app-debug.apk"
-          NAME="QQAntiRevoke-v2.0.0-QQ9.2.10-debug.apk"
+          NAME="QQAntiRevoke-v2.1.0-QQ9.2.10-debug.apk"
           test -f "$SOURCE"
           mkdir -p dist
           cp "$SOURCE" "dist/$NAME"
@@ -64,7 +64,7 @@ jobs:
         id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: QQAntiRevoke-v2.0.0-QQ9.2.10-debug
+          name: QQAntiRevoke-v2.1.0-QQ9.2.10-debug
           path: dist/
           if-no-files-found: error
           retention-days: 30
