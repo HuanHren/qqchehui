@@ -12,5 +12,9 @@ public final class ModulePrefs {
     public static final boolean DEFAULT_AGGRESSIVE = true;
     public static final boolean DEFAULT_DIAGNOSTICS = true;
 
+    public static final String ACTION_MODULE_LOG = MODULE_PACKAGE + ".ACTION_MODULE_LOG";
+    public static final String EXTRA_LOG_MESSAGE = "log_message";
+    public static final String LOG_RECEIVER_CLASS = MODULE_PACKAGE + ".LogReceiver";
+
     private ModulePrefs() {}
 }
