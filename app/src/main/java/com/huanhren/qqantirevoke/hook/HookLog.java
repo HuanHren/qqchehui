@@ -69,7 +69,8 @@ final class HookLog {
         if (context == null || line == null) {
             return;
         }
-        String enriched = "[process=" + processName + "] " + line;
+        String message = line.startsWith(PREFIX) ? line.substring(PREFIX.length()) : line;
+        String enriched = PREFIX + "[process=" + processName + "] " + message;
         String payload = enriched.length() > MAX_PROVIDER_CHARS
                 ? enriched.substring(0, MAX_PROVIDER_CHARS) + "\n…日志过长，已截断"
                 : enriched;
