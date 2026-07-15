@@ -14,10 +14,12 @@ final class NtRecallPushHook {
 
     private final ClassLoader classLoader;
     private final PreferenceReader preferences;
+    private final NtGrayTipInjector grayTipInjector;
 
     NtRecallPushHook(ClassLoader classLoader, PreferenceReader preferences) {
         this.classLoader = classLoader;
         this.preferences = preferences;
+        this.grayTipInjector = new NtGrayTipInjector(classLoader);
     }
 
     int install() {
@@ -84,11 +86,19 @@ final class NtRecallPushHook {
         }
 
         HookLog.info("检测到 NT 在线撤回推送：" + result.describe());
-        if (settings.blockOnlineRecall()) {
-            param.setResult(null);
-            HookLog.info("已阻断 NT 在线撤回原处理，原消息应继续保留");
-        } else {
+        if (!settings.blockOnlineRecall()) {
             HookLog.info("在线撤回阻断开关关闭，仅记录诊断日志");
+            return;
+        }
+
+        param.setResult(null);
+        HookLog.info("已阻断 NT 在线撤回原处理，原消息应继续保留");
+
+        if (settings.showGrayTip()) {
+            grayTipInjector.enqueue(result.events(), settings.grayTipTemplate());
+            HookLog.debug("已提交本地灰条插入任务，eventCount=" + result.events().size());
+        } else {
+            HookLog.info("本地撤回灰条开关关闭，不插入提示");
         }
     }
 
