@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-import de.robv.android.xposed.AndroidAppHelper;
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.android.AndroidClassLoadingStrategy;
 import net.bytebuddy.dynamic.DynamicType;
@@ -96,9 +95,9 @@ final class NtPttMenuFactory {
                         .and(ElementMatchers.takesArguments(0)))
                 .intercept(MethodDelegation.to(ClickDispatcher.class));
 
-        Application application = AndroidAppHelper.currentApplication();
+        Application application = currentApplication();
         if (application == null) {
-            throw new IllegalStateException("AndroidAppHelper.currentApplication() is null");
+            throw new IllegalStateException("ActivityThread.currentApplication() is null");
         }
         File generatedDir = application.getDir("qqantirevoke_generated", Context.MODE_PRIVATE);
         generatedMenuClass = builder.make()
@@ -110,6 +109,19 @@ final class NtPttMenuFactory {
                 + "，titleMethod=" + titleMethod.getName()
                 + "，clickMethod=" + clickMethod.getName()
                 + "，generatedDir=" + generatedDir.getAbsolutePath());
+    }
+
+    private static Application currentApplication() {
+        try {
+            Class<?> activityThread = Class.forName("android.app.ActivityThread");
+            Method method = activityThread.getDeclaredMethod("currentApplication");
+            method.setAccessible(true);
+            Object value = method.invoke(null);
+            return value instanceof Application ? (Application) value : null;
+        } catch (Throwable throwable) {
+            HookLog.error("反射获取 QQ Application 失败", throwable);
+            return null;
+        }
     }
 
     private static Class<?> findAbstractMenuBase(List<Object> items, Class<?> msgClass) {
