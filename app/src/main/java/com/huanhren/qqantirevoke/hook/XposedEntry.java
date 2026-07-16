@@ -1,5 +1,6 @@
 package com.huanhren.qqantirevoke.hook;
 
+import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
 import android.content.pm.PackageInfo;
@@ -22,6 +23,8 @@ public final class XposedEntry implements IXposedHookLoadPackage {
     private static final String MAIN_PROCESS = ModulePrefs.QQ_PACKAGE;
     private static final String MSF_PROCESS = ModulePrefs.QQ_PACKAGE + ":MSF";
     private static final AtomicBoolean INSTALLED = new AtomicBoolean(false);
+    private static final AtomicBoolean FOREGROUND_NOTICE_INSTALLED = new AtomicBoolean(false);
+    private static final AtomicBoolean FOREGROUND_NOTICE_SHOWN = new AtomicBoolean(false);
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) {
@@ -31,7 +34,7 @@ public final class XposedEntry implements IXposedHookLoadPackage {
             return;
         }
 
-        XposedBridge.log("[QQAntiRevoke] v3.2 入口加载，等待 Application.attach，进程="
+        XposedBridge.log("[QQAntiRevoke] v3.3 入口加载，等待 Application.attach，进程="
                 + lpparam.processName);
         try {
             XposedHelpers.findAndHookMethod(
@@ -60,7 +63,7 @@ public final class XposedEntry implements IXposedHookLoadPackage {
         try {
             boolean mainProcess = MAIN_PROCESS.equals(lpparam.processName);
             HookLog.initialize(context, lpparam.processName);
-            HookLog.info("v3.2 独立文件日志已初始化");
+            HookLog.info("v3.3 日志通道已初始化：Provider + 显式广播 + QQ 私有文件");
             logHostVersion(context, lpparam.processName);
 
             ClassLoader loader = context.getClassLoader() != null
@@ -80,41 +83,68 @@ public final class XposedEntry implements IXposedHookLoadPackage {
             int voiceHooks = 0;
 
             if (mainProcess && settings.qqSettingsEntry()) {
-                settingsHooks = new QqSettingsEntryHook(context, loader).install();
+                settingsHooks += new QqSettingsProviderEntryHook(
+                        context,
+                        loader,
+                        preferences
+                ).install();
+                settingsHooks += new QqSettingsEntryHook(context, loader).install();
             }
             if (mainProcess && settings.pttForward()) {
-                voiceHooks = new PttVoiceForwardHook(context, loader, preferences).install();
+                voiceHooks += new PttVoiceForwardHook(context, loader, preferences).install();
+                voiceHooks += new ActivePttMenuHook(context, loader, preferences).install();
+            }
+            if (mainProcess && settings.startupToast()) {
+                installForegroundLoadedNotice();
             }
 
-            HookLog.info("v3.2 安装完成：NT onMsfPush=" + ntPushHooks
+            HookLog.info("v3.3 安装完成：NT onMsfPush=" + ntPushHooks
                     + "，旧链路备用入口=" + legacyHooks
                     + "，本地灰条=" + settings.showGrayTip()
-                    + "，QQ设置入口=" + settingsHooks
-                    + "，语音转发基础Hook=" + voiceHooks);
+                    + "，QQ设置入口Hook=" + settingsHooks
+                    + "，语音转发Hook=" + voiceHooks);
             if (ntPushHooks == 0) {
                 HookLog.info("警告：未安装 NT onMsfPush Hook；当前版本可能无法拦截 NT 撤回");
             }
-            if (mainProcess && settings.startupToast()) {
-                showLoadedToast(context);
-            }
         } catch (Throwable throwable) {
-            HookLog.error("Application.attach 后安装 v3.2 Hook 失败", throwable);
+            HookLog.error("Application.attach 后安装 v3.3 Hook 失败", throwable);
         }
     }
 
-    private static void showLoadedToast(Context context) {
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            try {
-                Toast.makeText(
-                        context.getApplicationContext(),
-                        "QQ 防撤回 NT v3.2 已加载",
-                        Toast.LENGTH_SHORT
-                ).show();
-                HookLog.info("已显示模块加载成功提示");
-            } catch (Throwable throwable) {
-                HookLog.error("显示模块加载提示失败", throwable);
-            }
-        }, 1300L);
+    private static void installForegroundLoadedNotice() {
+        if (!FOREGROUND_NOTICE_INSTALLED.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            XposedHelpers.findAndHookMethod(Activity.class, "onPostResume", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
+                    if (FOREGROUND_NOTICE_SHOWN.get() || !(param.thisObject instanceof Activity)) {
+                        return;
+                    }
+                    Activity activity = (Activity) param.thisObject;
+                    if (!ModulePrefs.QQ_PACKAGE.equals(activity.getPackageName())
+                            || !FOREGROUND_NOTICE_SHOWN.compareAndSet(false, true)) {
+                        return;
+                    }
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        try {
+                            Toast.makeText(
+                                    activity,
+                                    "QQ 防撤回 NT v3.3 已加载",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            HookLog.info("已在 QQ 前台 Activity 显示模块加载提示");
+                        } catch (Throwable throwable) {
+                            HookLog.error("显示 QQ 前台加载提示失败", throwable);
+                        }
+                    }, 350L);
+                }
+            });
+            HookLog.info("已安装 QQ 前台 Activity 加载提示 Hook");
+        } catch (Throwable throwable) {
+            HookLog.error("安装 QQ 前台加载提示 Hook 失败", throwable);
+        }
     }
 
     private static void logHostVersion(Context context, String processName) {
