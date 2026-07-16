@@ -42,7 +42,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Run parser tests and build signed debug APK
+      - name: Run tests and build signed debug APK
         shell: bash
         run: |
           chmod +x gradlew
@@ -54,7 +54,7 @@ jobs:
         run: |
           set -euo pipefail
           SOURCE="app/build/outputs/apk/debug/app-debug.apk"
-          NAME="QQAntiRevoke-NT-v3.1.0-QQ9.2.10-debug.apk"
+          NAME="QQAntiRevoke-NT-v3.2.0-QQ9.2.10-debug.apk"
           test -f "$SOURCE"
           mkdir -p dist
           cp "$SOURCE" "dist/$NAME"
@@ -67,7 +67,7 @@ jobs:
         id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: QQAntiRevoke-NT-v3.1.0-QQ9.2.10-debug
+          name: QQAntiRevoke-NT-v3.2.0-QQ9.2.10-debug
           path: dist/
           if-no-files-found: error
           retention-days: 30
@@ -76,13 +76,13 @@ jobs:
         shell: bash
         run: |
           {
-            echo "## QQ 防撤回 NT v3.1 构建成功"
+            echo "## QQ 防撤回 NT v3.2 构建成功"
             echo
             echo "- 文件：\`${{ steps.prepare.outputs.apk_name }}\`"
             echo "- SHA-256：\`${{ steps.prepare.outputs.apk_sha256 }}\`"
-            echo "- 功能：保留原消息，并插入可自定义的本地撤回灰条"
+            echo "- 功能：NT 防撤回、自定义灰条、QQ 设置入口、加载提示、语音转发、Root 独立文件日志"
             echo "- 单元测试：NT C2C、群聊和 InfoSync 撤回解析已通过"
             echo "- [点击下载构建产物](${{ steps.upload.outputs.artifact-url }})"
             echo
-            echo "覆盖安装后，打开模块 App 设置灰条内容，再强制停止并重新打开 QQ。"
+            echo "覆盖安装后，强制停止并重新打开 QQ。"
           } >> "$GITHUB_STEP_SUMMARY"
