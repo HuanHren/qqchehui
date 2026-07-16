@@ -1,5 +1,9 @@
 package com.huanhren.qqantirevoke.hook;
 
+import android.app.Application;
+import android.content.Context;
+
+import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -8,9 +12,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
+import de.robv.android.xposed.AndroidAppHelper;
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.android.AndroidClassLoadingStrategy;
-import net.bytebuddy.android.InjectableDexClassLoader;
 import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.implementation.FixedValue;
 import net.bytebuddy.implementation.MethodDelegation;
@@ -24,7 +28,6 @@ final class NtPttMenuFactory {
     private static final Map<Object, Runnable> ACTIONS =
             Collections.synchronizedMap(new WeakHashMap<>());
 
-    private static volatile ClassLoader injectionClassLoader;
     private static volatile Class<?> generatedMenuClass;
     private static volatile Constructor<?> generatedConstructor;
 
@@ -93,15 +96,20 @@ final class NtPttMenuFactory {
                         .and(ElementMatchers.takesArguments(0)))
                 .intercept(MethodDelegation.to(ClickDispatcher.class));
 
-        ClassLoader loader = getOrCreateInjectionClassLoader(hostClassLoader);
+        Application application = AndroidAppHelper.currentApplication();
+        if (application == null) {
+            throw new IllegalStateException("AndroidAppHelper.currentApplication() is null");
+        }
+        File generatedDir = application.getDir("qqantirevoke_generated", Context.MODE_PRIVATE);
         generatedMenuClass = builder.make()
-                .load(loader, new AndroidClassLoadingStrategy.Injecting())
+                .load(hostClassLoader, new AndroidClassLoadingStrategy.Injecting(generatedDir))
                 .getLoaded();
         generatedConstructor = findUsableConstructor(generatedMenuClass, msgItem.getClass());
         generatedConstructor.setAccessible(true);
         HookLog.info("已生成 QQ NT 自定义菜单类，base=" + baseClass.getName()
                 + "，titleMethod=" + titleMethod.getName()
-                + "，clickMethod=" + clickMethod.getName());
+                + "，clickMethod=" + clickMethod.getName()
+                + "，generatedDir=" + generatedDir.getAbsolutePath());
     }
 
     private static Class<?> findAbstractMenuBase(List<Object> items, Class<?> msgClass) {
@@ -144,20 +152,6 @@ final class NtPttMenuFactory {
             return noArg;
         }
         throw new NoSuchMethodException("没有可用构造方法: " + type.getName());
-    }
-
-    private static ClassLoader getOrCreateInjectionClassLoader(ClassLoader parent) {
-        ClassLoader current = injectionClassLoader;
-        if (current == null) {
-            synchronized (NtPttMenuFactory.class) {
-                current = injectionClassLoader;
-                if (current == null) {
-                    current = new InjectableDexClassLoader(parent);
-                    injectionClassLoader = current;
-                }
-            }
-        }
-        return current;
     }
 
     public static final class ClickDispatcher {
