@@ -13,6 +13,9 @@ public final class ModulePrefs {
     public static final String KEY_LEGACY_FALLBACK = "legacy_fallback";
     public static final String KEY_SHOW_GRAY_TIP = "show_gray_tip";
     public static final String KEY_GRAY_TIP_TEMPLATE = "gray_tip_template";
+    public static final String KEY_QQ_SETTINGS_ENTRY = "qq_settings_entry";
+    public static final String KEY_PTT_FORWARD = "ptt_forward";
+    public static final String KEY_STARTUP_TOAST = "startup_toast";
     public static final String KEY_DIAGNOSTICS = "diagnostics";
 
     public static final boolean DEFAULT_ENABLED = true;
@@ -21,8 +24,15 @@ public final class ModulePrefs {
     public static final boolean DEFAULT_LEGACY_FALLBACK = true;
     public static final boolean DEFAULT_SHOW_GRAY_TIP = true;
     public static final String DEFAULT_GRAY_TIP_TEMPLATE = "{operator}尝试撤回一条消息";
+    public static final boolean DEFAULT_QQ_SETTINGS_ENTRY = true;
+    public static final boolean DEFAULT_PTT_FORWARD = true;
+    public static final boolean DEFAULT_STARTUP_TOAST = true;
     public static final boolean DEFAULT_DIAGNOSTICS = true;
     public static final int MAX_GRAY_TIP_TEMPLATE_LENGTH = 160;
+
+    public static final String HOST_LOG_DIRECTORY = "qqantirevoke";
+    public static final String HOST_LOG_MAIN_FILE = "main.log";
+    public static final String HOST_LOG_MSF_FILE = "msf.log";
 
     public static final String LOG_AUTHORITY = MODULE_PACKAGE + ".logs";
     public static final Uri LOG_URI = Uri.parse("content://" + LOG_AUTHORITY);
