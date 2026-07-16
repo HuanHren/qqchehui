@@ -1,7 +1,5 @@
 package com.huanhren.qqantirevoke;
 
-import android.net.Uri;
-
 public final class ModulePrefs {
     public static final String MODULE_PACKAGE = "com.huanhren.qqantirevoke";
     public static final String QQ_PACKAGE = "com.tencent.mobileqq";
@@ -27,25 +25,8 @@ public final class ModulePrefs {
     public static final boolean DEFAULT_QQ_SETTINGS_ENTRY = true;
     public static final boolean DEFAULT_PTT_FORWARD = true;
     public static final boolean DEFAULT_STARTUP_TOAST = true;
-    public static final boolean DEFAULT_DIAGNOSTICS = true;
+    public static final boolean DEFAULT_DIAGNOSTICS = false;
     public static final int MAX_GRAY_TIP_TEMPLATE_LENGTH = 160;
-
-    public static final String HOST_LOG_DIRECTORY = "qqantirevoke";
-    public static final String HOST_LOG_MAIN_FILE = "main.log";
-    public static final String HOST_LOG_MSF_FILE = "msf.log";
-
-    public static final String LOG_AUTHORITY = MODULE_PACKAGE + ".logs";
-    public static final Uri LOG_URI = Uri.parse("content://" + LOG_AUTHORITY);
-    public static final String LOG_METHOD_APPEND = "append";
-    public static final String LOG_METHOD_READ = "read";
-    public static final String LOG_METHOD_CLEAR = "clear";
-    public static final String LOG_EXTRA_LINE = "line";
-    public static final String LOG_RESULT_TEXT = "logs";
-    public static final String LOG_RESULT_OK = "ok";
-    public static final String LOG_RESULT_ERROR = "error";
-
-    public static final String LOG_BRIDGE_ACTION = MODULE_PACKAGE + ".APPEND_LOG";
-    public static final String LOG_BRIDGE_RECEIVER = MODULE_PACKAGE + ".ModuleLogReceiver";
 
     private ModulePrefs() {}
 }

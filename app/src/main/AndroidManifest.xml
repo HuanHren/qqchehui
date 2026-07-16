@@ -14,33 +14,13 @@
         android:usesCleartextTraffic="false">
 
         <activity
-            android:name=".DashboardActivity"
+            android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="true" />
-
-        <receiver
-            android:name=".ModuleLogReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.huanhren.qqantirevoke.APPEND_LOG" />
-            </intent-filter>
-        </receiver>
-
-        <provider
-            android:name=".ModuleLogProvider"
-            android:authorities="com.huanhren.qqantirevoke.logs"
-            android:enabled="true"
-            android:exported="true"
-            android:grantUriPermissions="false" />
 
         <meta-data android:name="xposedmodule" android:value="true" />
         <meta-data android:name="xposeddescription" android:value="@string/module_description" />
