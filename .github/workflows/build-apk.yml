@@ -45,8 +45,23 @@ jobs:
       - name: Run tests and build signed debug APK
         shell: bash
         run: |
+          set -o pipefail
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace clean :app:testDebugUnitTest :app:assembleDebug
+          if ! ./gradlew --no-daemon --stacktrace clean :app:testDebugUnitTest :app:assembleDebug > gradle-build.log 2>&1; then
+            echo "===== Gradle failure tail ====="
+            tail -n 260 gradle-build.log
+            exit 1
+          fi
+          tail -n 80 gradle-build.log
+
+      - name: Upload Gradle failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-failure-log
+          path: gradle-build.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Prepare artifact
         id: prepare
