@@ -1,6 +1,8 @@
 package com.huanhren.qqantirevoke.hook;
 
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -98,6 +100,7 @@ final class HookLog {
         WRITER.execute(() -> {
             appendHostFile(payload);
             writeProvider(context, payload);
+            sendExplicitBroadcast(context, payload);
         });
     }
 
@@ -145,10 +148,24 @@ final class HookLog {
                 String reason = result == null
                         ? "provider returned null"
                         : result.getString(ModulePrefs.LOG_RESULT_ERROR, "unknown error");
-                XposedBridge.log(PREFIX + "Provider 日志写入失败，已保留 QQ 私有日志: " + reason);
+                XposedBridge.log(PREFIX + "Provider 日志写入失败，继续使用广播/文件: " + reason);
             }
         } catch (Throwable throwable) {
-            XposedBridge.log(PREFIX + "Provider 日志写入异常，已保留 QQ 私有日志: " + throwable);
+            XposedBridge.log(PREFIX + "Provider 日志写入异常，继续使用广播/文件: " + throwable);
+        }
+    }
+
+    private static void sendExplicitBroadcast(Context context, String payload) {
+        try {
+            Intent intent = new Intent(ModulePrefs.LOG_BRIDGE_ACTION);
+            intent.setComponent(new ComponentName(
+                    ModulePrefs.MODULE_PACKAGE,
+                    ModulePrefs.LOG_BRIDGE_RECEIVER
+            ));
+            intent.putExtra(ModulePrefs.LOG_EXTRA_LINE, payload);
+            context.sendBroadcast(intent);
+        } catch (Throwable throwable) {
+            XposedBridge.log(PREFIX + "显式广播日志失败，已保留 LSPosed/文件日志: " + throwable);
         }
     }
 }

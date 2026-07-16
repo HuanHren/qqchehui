@@ -22,6 +22,15 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".ModuleLogReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.huanhren.qqantirevoke.APPEND_LOG" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name=".ModuleLogProvider"
             android:authorities="com.huanhren.qqantirevoke.logs"

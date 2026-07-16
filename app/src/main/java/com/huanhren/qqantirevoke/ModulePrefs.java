@@ -44,5 +44,8 @@ public final class ModulePrefs {
     public static final String LOG_RESULT_OK = "ok";
     public static final String LOG_RESULT_ERROR = "error";
 
+    public static final String LOG_BRIDGE_ACTION = MODULE_PACKAGE + ".APPEND_LOG";
+    public static final String LOG_BRIDGE_RECEIVER = MODULE_PACKAGE + ".ModuleLogReceiver";
+
     private ModulePrefs() {}
 }
